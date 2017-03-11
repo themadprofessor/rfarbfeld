@@ -1,0 +1,6 @@
+[package]
+name = "rfarbfeld"
+version = "0.1.0"
+authors = ["Stuart Reilly <stu@reilly-family.co.uk>"]
+
+[dependencies]
