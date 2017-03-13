@@ -2,6 +2,7 @@ use std::io::{Read, Cursor};
 use std::fmt;
 use std::fmt::{Display,Formatter};
 use std::error;
+use std::ops::{Index};
 use byteorder::{ReadBytesExt, BigEndian};
 
 #[derive(Debug)]
@@ -22,20 +23,6 @@ pub struct Farbfeld {
     pixels: Vec<Pixel>,
     width: u32,
     height: u32
-}
-
-impl error::Error for FarbfeldErr {
-    fn description(&self) -> &str {
-        self.desc.as_str()
-    }
-}
-
-impl Display for FarbfeldErr {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let desc = &self.desc;
-        let error = &self.super_err.as_ref();
-        write!(f, "Failed to parse farbfeld data! {} {}", desc, &error.map_or("".to_string(), |err| format!("{}", err)))
-    }
 }
 
 impl Pixel {
@@ -89,51 +76,60 @@ impl Farbfeld {
                             super_err: Some(err)})
                 }
             })
-        .and_then(|num| {
-            if num < 8 {
-                Err(FarbfeldErr{desc: format!("Failed to read enough data for dimensions! Read {} bytes.", num), super_err: None})
-            } else {
-                let width_res = Cursor::new(buff[0..4].to_vec()).read_u32::<BigEndian>();
-                let height_res = Cursor::new(buff[4..8].to_vec()).read_u32::<BigEndian>();
-                if width_res.is_ok() && height_res.is_ok() {
-                    Ok((width_res.unwrap(), height_res.unwrap()))
+            .and_then(|num| {
+                if num < 8 {
+                    Err(FarbfeldErr{desc: format!("Failed to read enough data for dimensions! Read {} bytes.", num), super_err: None})
                 } else {
-                    Err(FarbfeldErr{desc: format!("Could not parse dimensions! Width Error: {}  Height Error: {}",
-                                     err_to_string(width_res),
-                                     err_to_string(height_res)),
-                        super_err: None})
-                }
-            }})
-         .and_then(|dimensions| {
-            let mut pixels = Vec::with_capacity((dimensions.0 * dimensions.1) as usize);
-            while true {
-                buff.clear();
-                buff.extend_from_slice(&empty);
-
-                let count_res = reader.read(&mut buff).map_err(|err|
-                    FarbfeldErr{desc: "Failed to read data for pixels!".to_string(), super_err: Some(err)});
-                if count_res.is_err(){
-                    return count_res.map(|_| Farbfeld{width: 0, height: 0, pixels: Vec::new()})
-                } else {
-                    let count = count_res.unwrap();
-                    if count == 0 {
-                        break;
-                    } else if count < 8 {
-                        return Err(FarbfeldErr{desc: format!("Failed to read enough data! Read {} bytes.", count),
+                    let width_res = Cursor::new(buff[0..4].to_vec()).read_u32::<BigEndian>();
+                    let height_res = Cursor::new(buff[4..8].to_vec()).read_u32::<BigEndian>();
+                    if width_res.is_ok() && height_res.is_ok() {
+                        Ok((width_res.unwrap(), height_res.unwrap()))
+                    } else {
+                        Err(FarbfeldErr{desc: format!("Could not parse dimensions! Width Error: {}  Height Error: {}",
+                                                      err_to_string(width_res),
+                                                      err_to_string(height_res)),
                             super_err: None})
+                    }
+                }})
+            .and_then(|dimensions| {
+                let mut pixels = Vec::with_capacity((dimensions.0 * dimensions.1) as usize);
+                while true {
+                    buff.clear();
+                    buff.extend_from_slice(&empty);
+
+                    let count_res = reader.read(&mut buff).map_err(|err|
+                        FarbfeldErr{desc: "Failed to read data for pixels!".to_string(), super_err: Some(err)});
+                    if count_res.is_err(){
+                        return count_res.map(|_| Farbfeld{width: 0, height: 0, pixels: Vec::new()})
+                    } else {
+                        let count = count_res.unwrap();
+                        if count == 0 {
+                            break;
+                        } else if count < 8 {
+                            return Err(FarbfeldErr{desc: format!("Failed to read enough data! Read {} bytes.", count),
+                                super_err: None})
+                        }
+                    }
+
+                    let pixel_res = Pixel::new(&buff);
+                    if pixel_res.is_err() {
+                        return pixel_res.map(|_| Farbfeld{width: 0, height: 0, pixels: Vec::new()})
+                    } else {
+                        pixels.push(pixel_res.unwrap());
                     }
                 }
 
-                let pixel_res = Pixel::new(&buff);
-                if pixel_res.is_err() {
-                    return pixel_res.map(|_| Farbfeld{width: 0, height: 0, pixels: Vec::new()})
-                } else {
-                    pixels.push(pixel_res.unwrap());
-                }
-            }
+                pixels.shrink_to_fit();
+                Ok(Farbfeld{width: dimensions.0, height: dimensions.1, pixels: pixels})
+            })
+    }
 
-            Ok(Farbfeld{width: dimensions.0, height: dimensions.1, pixels: pixels})
-        })
+    pub fn get(&self, index: usize) -> Option<&Pixel> {
+        self.pixels.get(index)
+    }
+
+    pub fn get_pos(&self, pos: [u8; 2]) -> Option<&Pixel> {
+        self.get(self.width * pos[0] + pos[1])
     }
 
     pub fn height(&mut self) -> u32 {
@@ -143,9 +139,37 @@ impl Farbfeld {
     pub fn width(&mut self) -> u32 {
         self.width
     }
+}
 
-    pub fn pixels(&mut self) -> &Vec<Pixel> {
-        &self.pixels
+impl error::Error for FarbfeldErr {
+    fn description(&self) -> &str {
+        self.desc.as_str()
+    }
+}
+
+impl Display for FarbfeldErr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let desc = &self.desc;
+        let error = &self.super_err.as_ref();
+        write!(f, "Failed to parse farbfeld data! {} {}", desc,
+               &error.map_or("".to_string(), |err| format!("{}", err)))
+    }
+}
+
+impl Index<[u8]> for Farbfeld {
+    type Output = Pixel;
+
+    fn index(&self, index: [u8; 2]) -> &Self::Output {
+        self.get_pos(index).expect(format!("Positional index out of bounds! {} >= [{}, {}]",
+                                           index, self.width, self.height))
+    }
+}
+
+impl Index<usize> for Farbfeld {
+    type Output = Pixel;
+
+    fn index(&self, index: Idx) -> &Self::Output {
+        self.get(index).expect("Index greater than pixel count! {} >= {}", index, self.pixels.len())
     }
 }
 

@@ -1,4 +1,7 @@
+#![feature(test)]
+
 extern crate byteorder;
+extern crate test;
 
 mod farbfeld;
 
@@ -18,7 +21,6 @@ fn main() {
     if let Some(path) = env::args().nth(1) {
         let file = File::open(path).expect("Failed to open file!");
         let mut img = Farbfeld::load(file).expect("Failed to load image!");
-        println!("Height: {}, Width: {}, Pixel Count: {}", img.height(), img.width(), img.pixels().len())
     } else {
         println_stderr!("No file given");
     }
