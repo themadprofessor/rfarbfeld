@@ -12,7 +12,7 @@ pub struct FarbfeldErr {
 }
 
 #[derive(Debug)]
-struct Pixel {
+pub struct Pixel {
     red: u16,
     green: u16,
     blue: u16,
@@ -50,6 +50,22 @@ impl Pixel {
                 super_err: None
             })
         }
+    }
+
+    fn red(&self) -> u16 {
+        self.red
+    }
+
+    fn green(&self) -> u16 {
+        self.green
+    }
+
+    fn blue(&self) -> u16 {
+        self.blue
+    }
+
+    fn alpha(&self) -> u16 {
+        self.alpha
     }
 }
 
@@ -128,8 +144,8 @@ impl Farbfeld {
         self.pixels.get(index)
     }
 
-    pub fn get_pos(&self, pos: [u8; 2]) -> Option<&Pixel> {
-        self.get(self.width * pos[0] + pos[1])
+    pub fn get_pos(&self, pos: [u32; 2]) -> Option<&Pixel> {
+        self.get((self.width * pos[0] + pos[1]) as usize)
     }
 
     pub fn height(&mut self) -> u32 {
@@ -156,20 +172,21 @@ impl Display for FarbfeldErr {
     }
 }
 
-impl Index<[u8]> for Farbfeld {
+impl Index<[u32; 2]> for Farbfeld {
     type Output = Pixel;
 
-    fn index(&self, index: [u8; 2]) -> &Self::Output {
-        self.get_pos(index).expect(format!("Positional index out of bounds! {} >= [{}, {}]",
-                                           index, self.width, self.height))
+    fn index(&self, index: [u32; 2]) -> &Self::Output {
+        self.get_pos(index).expect(format!("Positional index out of bounds! {:?} >= [{}, {}]",
+                                           index, self.width, self.height).as_str())
     }
 }
 
 impl Index<usize> for Farbfeld {
     type Output = Pixel;
 
-    fn index(&self, index: Idx) -> &Self::Output {
-        self.get(index).expect("Index greater than pixel count! {} >= {}", index, self.pixels.len())
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect(format!("Index greater than pixel count! {:?} >= {}",
+                                       index, self.pixels.len()).as_str())
     }
 }
 
