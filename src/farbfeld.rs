@@ -70,6 +70,7 @@ impl Pixel {
 }
 
 impl Farbfeld {
+    //Might want to move reading out of sub functions
     pub fn load<T>(mut reader: T) -> Result<Farbfeld, FarbfeldErr> where T: Read {
         let empty = [0; 8];
 
@@ -206,19 +207,35 @@ fn check_magic(num: usize, mut buff: &mut Vec<u8>, mut reader: &mut Read, empty:
     }
 }
 
-    fn get_dimensions(num: usize, mut buff: &mut Vec<u8>) -> Result<(u32, u32), FarbfeldErr> {
-        if num < 8 {
-            Err(FarbfeldErr{desc: format!("Failed to read enough data for dimensions! Read {} bytes.", num), super_err: None})
+fn get_dimensions(num: usize, mut buff: &mut Vec<u8>) -> Result<(u32, u32), FarbfeldErr> {
+    if num < 8 {
+        Err(FarbfeldErr{desc: format!("Failed to read enough data for dimensions! Read {} bytes.", num), super_err: None})
+    } else {
+        let width_res = Cursor::new(buff[0..4].to_vec()).read_u32::<BigEndian>();
+        let height_res = Cursor::new(buff[4..8].to_vec()).read_u32::<BigEndian>();
+        if width_res.is_ok() && height_res.is_ok() {
+            Ok((width_res.unwrap(), height_res.unwrap()))
         } else {
-            let width_res = Cursor::new(buff[0..4].to_vec()).read_u32::<BigEndian>();
-            let height_res = Cursor::new(buff[4..8].to_vec()).read_u32::<BigEndian>();
-            if width_res.is_ok() && height_res.is_ok() {
-                Ok((width_res.unwrap(), height_res.unwrap()))
-            } else {
-                Err(FarbfeldErr{desc: format!("Could not parse dimensions! Width Error: {}  Height Error: {}",
-                                              err_to_string(width_res),
-                                              err_to_string(height_res)),
-                    super_err: None})
-            }
+            Err(FarbfeldErr{desc: format!("Could not parse dimensions! Width Error: {}  Height Error: {}",
+                                          err_to_string(width_res),
+                                          err_to_string(height_res)),
+                super_err: None})
         }
+    }
+}
+
+mod test {
+    extern crate test;
+
+    use super::*;
+    use std::fs::File;
+    use test::Bencher;
+
+    #[bench]
+    fn load(b: &mut Bencher) {
+        b.iter(|| {
+            let mut file = File::open("test.ff").expect("Failed to open file!");
+            Farbfeld::load(file)
+        })
+    }
 }

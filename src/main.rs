@@ -21,7 +21,6 @@ fn main() {
     if let Some(path) = env::args().nth(1) {
         let file = File::open(path).expect("Failed to open file!");
         let mut img = Farbfeld::load(file).expect("Failed to load image!");
-        //println!("Width: {} Height: {}", img.width(), img.height());
     } else {
         println_stderr!("No file given");
     }
