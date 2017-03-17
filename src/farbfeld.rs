@@ -26,7 +26,7 @@ pub struct Farbfeld {
 }
 
 impl Pixel {
-    fn new(buff: &Vec<u8>) -> Result<Pixel, FarbfeldErr> {
+    fn new(buff: &[u8; 8]) -> Result<Pixel, FarbfeldErr> {
         let red_res = Cursor::new(buff[0..2].to_vec()).read_u16::<BigEndian>();
         let green_res = Cursor::new(buff[2..4].to_vec()).read_u16::<BigEndian>();
         let blue_res = Cursor::new(buff[4..6].to_vec()).read_u16::<BigEndian>();
@@ -70,18 +70,34 @@ impl Pixel {
 }
 
 impl Farbfeld {
-    //Might want to move reading out of sub functions
     pub fn load<T>(mut reader: T) -> Result<Farbfeld, FarbfeldErr> where T: Read {
-        let empty = [0; 8];
+        let mut buff = [0; 8];
 
-        let mut buff:Vec<u8> = Vec::with_capacity(8);
-        buff.extend_from_slice(&empty);
-        let res = reader.read(&mut buff);
-        res.map_err(|err| FarbfeldErr{desc: "Failed to read magic number!".to_string(), super_err: Some(err)})
-            .and_then(|num| check_magic(num, &mut buff, &mut reader, &empty))
-            .and_then(|num| get_dimensions(num, &mut buff))
-            .and_then(|dimensions| load_pixels(&mut reader, &mut buff, &dimensions, &empty)
-                .map(|pixels| Farbfeld{width: dimensions.0, height: dimensions.1, pixels: pixels}))
+        if let Some(err) = check_count(reader.read(&mut buff), 8) {
+            return Err(FarbfeldErr{
+                desc: format!("Failed to read magic number data! Caused by: {}", err),
+                super_err: None})
+        }
+        if let Some(err) = check_magic(&buff) {
+            return Err(err)
+        }
+
+        if let Some(err) = check_count(reader.read(&mut buff), 8) {
+            return Err(FarbfeldErr{
+                desc: format!("Failed to read dimension data! Caused by: {}", err),
+                super_err: None})
+        }
+        let dimen_res = get_dimensions(&buff);
+        let dimensions = match dimen_res {
+            Ok((width, height)) => (width, height),
+            Err(err) => return Err(err)
+        };
+
+        load_pixels(&mut reader, &dimensions).map(|pixels| Farbfeld{
+            pixels: pixels,
+            width: dimensions.0,
+            height: dimensions.1
+        })
     }
 
     pub fn get(&self, index: usize) -> Option<&Pixel> {
@@ -152,75 +168,83 @@ impl IndexMut<usize> for Farbfeld {
     }
 }
 
+fn check_count(count_res: ::std::io::Result<usize>, count_req: usize) -> Option<FarbfeldErr> {
+    if count_res.is_err() {
+        return Some(FarbfeldErr{
+            desc: "Failed to read data!".to_string(),
+            super_err: Some(count_res.unwrap_err())})
+    } else {
+        let count = count_res.unwrap();
+        if count < count_req {
+            return Some(FarbfeldErr{desc:
+                format!("Failed to read correct amount of data! Read {} bytes.", count),
+                super_err: None})
+        } else {
+            None
+        }
+    }
+}
+
 fn err_to_string<T, E:error::Error>(res: Result<T, E>) -> String {
     match res {
-        Ok(_) => "".to_string(),
+        Ok(_) => String::new(),
         Err(err) => format!("{}", err)
     }
 }
 
-fn load_pixels(reader: &mut Read, mut buff: &mut Vec<u8>, dimensions: &(u32, u32), empty: &[u8; 8]) -> Result<Vec<Pixel>, FarbfeldErr> {
+fn load_pixels(reader: &mut Read, dimensions: &(u32, u32)) -> Result<Vec<Pixel>, FarbfeldErr> {
     let mut pixels = Vec::with_capacity((dimensions.0 * dimensions.1) as usize);
-    loop {
-        buff.clear();
-        buff.extend_from_slice(empty);
 
-        let count_res = reader.read(&mut buff).map_err(|err|
-            FarbfeldErr{desc: "Failed to read data for pixels!".to_string(), super_err: Some(err)});
-        if count_res.is_err(){
-            return count_res.map(|_| Vec::new())
-        } else {
-            let count = count_res.unwrap();
-            if count == 0 {
-                break;
-            } else if count < 8 {
-                return Err(FarbfeldErr{desc: format!("Failed to read enough data! Read {} bytes.", count),
-                    super_err: None})
-            }
+    loop {
+        let mut buff = [0; 8];
+        let count_res = reader.read(&mut buff)
+            .map_err(|err| FarbfeldErr{desc: "Failed to read data!".to_string(), super_err: Some(err)})
+            .and_then(|num| {
+                if num < 8 && num != 0 {
+                    Err(FarbfeldErr{
+                        desc: format!("Failed to read enough data for pixels! Read {} bytes.", num),
+                        super_err: None})
+                } else {
+                    Ok(num)
+                }
+            });
+        if count_res.is_err() {
+            return Err(count_res.unwrap_err())
+        } else if count_res.unwrap() == 0 {
+            break;
         }
 
         let pixel_res = Pixel::new(&buff);
         if pixel_res.is_err() {
-            return Err(FarbfeldErr{desc: "Failed to parse pixel!".to_string(), super_err: None})
+            return Err(pixel_res.unwrap_err())
         } else {
-            pixels.push(pixel_res.unwrap());
+            pixels.push(pixel_res.unwrap())
         }
     }
 
     pixels.shrink_to_fit();
-    Ok(pixels)
+    Ok::<Vec<Pixel>, FarbfeldErr>(pixels)
 }
 
-fn check_magic(num: usize, mut buff: &mut Vec<u8>, mut reader: &mut Read, empty: &[u8;8]) -> Result<usize, FarbfeldErr> {
-    if num < 8 {
-        Err(FarbfeldErr{desc: format!("Failed to read enough data for magic number! Read {} bytes.", num),
-            super_err: None})
-    } else if buff.as_ref() != [0x66, 0x61, 0x72, 0x62, 0x66, 0x65, 0x6c, 0x64] {
-        Err(FarbfeldErr{desc: "Magic number indicated not farbfeld data!".to_string(),
-            super_err: None})
+fn check_magic(buff: &[u8; 8]) -> Option<FarbfeldErr> {
+    if buff == &[0x66, 0x61, 0x72, 0x62, 0x66, 0x65, 0x6c, 0x64] {
+        None
     } else {
-        buff.clear();
-        buff.extend_from_slice(empty);
-        reader.read(&mut buff).map_err(|err|
-            FarbfeldErr{desc: "Failed to read dimensions".to_string(),
-                super_err: Some(err)})
+        Some(FarbfeldErr{desc: "Invalid farbeld file! Incorrect magic number!".to_string(),
+            super_err: None})
     }
 }
 
-fn get_dimensions(num: usize, mut buff: &mut Vec<u8>) -> Result<(u32, u32), FarbfeldErr> {
-    if num < 8 {
-        Err(FarbfeldErr{desc: format!("Failed to read enough data for dimensions! Read {} bytes.", num), super_err: None})
+fn get_dimensions(buff: &[u8; 8]) -> Result<(u32, u32), FarbfeldErr> {
+    let width_res = Cursor::new(&buff[0..4]).read_u32::<BigEndian>();
+    let height_res = Cursor::new(&buff[4..8]).read_u32::<BigEndian>();
+    if width_res.is_ok() && height_res.is_ok() {
+        Ok((width_res.unwrap(), height_res.unwrap()))
     } else {
-        let width_res = Cursor::new(buff[0..4].to_vec()).read_u32::<BigEndian>();
-        let height_res = Cursor::new(buff[4..8].to_vec()).read_u32::<BigEndian>();
-        if width_res.is_ok() && height_res.is_ok() {
-            Ok((width_res.unwrap(), height_res.unwrap()))
-        } else {
-            Err(FarbfeldErr{desc: format!("Could not parse dimensions! Width Error: {}  Height Error: {}",
-                                          err_to_string(width_res),
-                                          err_to_string(height_res)),
-                super_err: None})
-        }
+        Err(FarbfeldErr{desc: format!("Couldn't parse dimensions! Width Error: {} Height Error: {}",
+                                      err_to_string(width_res),
+                                      err_to_string(height_res)),
+            super_err: None})
     }
 }
 
@@ -229,13 +253,14 @@ mod test {
 
     use super::*;
     use std::fs::File;
+    use std::io::BufReader;
     use test::Bencher;
 
     #[bench]
-    fn load(b: &mut Bencher) {
+    fn ld(b: &mut Bencher) {
         b.iter(|| {
-            let mut file = File::open("test.ff").expect("Failed to open file!");
-            Farbfeld::load(file)
+            let file = File::open("test.ff").expect("Failed to open file!");
+            Farbfeld::load(BufReader::new(file)).unwrap()
         })
     }
 }
