@@ -25,6 +25,11 @@ pub struct Farbfeld {
     height: u32
 }
 
+pub struct PixelIter {
+    pixel: Pixel,
+    curr: u8
+}
+
 impl Pixel {
     fn new(buff: &[u8; 8]) -> Result<Pixel, FarbfeldErr> {
         let red_res = Cursor::new(buff[0..2].to_vec()).read_u16::<BigEndian>();
@@ -122,6 +127,35 @@ impl Farbfeld {
 
     pub fn width(&mut self) -> u32 {
         self.width
+    }
+
+    pub fn into_raw(self) -> Vec<u16> {
+        self.pixels.into_iter()
+            .flat_map(|pixel| pixel.into_iter())
+            .collect::<Vec<u16>>()
+    }
+}
+
+impl Iterator for PixelIter {
+    type Item = u16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.curr {
+            0 => {self.curr += 1; Some(self.pixel.red)},
+            1 => {self.curr += 1; Some(self.pixel.green)},
+            2 => {self.curr += 1; Some(self.pixel.blue)},
+            3 => {self.curr += 1; Some(self.pixel.alpha)},
+            _ => None
+        }
+    }
+}
+
+impl IntoIterator for Pixel {
+    type IntoIter = PixelIter;
+    type Item = u16;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PixelIter{pixel: self, curr: 0}
     }
 }
 
@@ -257,10 +291,33 @@ mod test {
     use test::Bencher;
 
     #[bench]
-    fn ld(b: &mut Bencher) {
+    fn bench_load(b: &mut Bencher) {
         b.iter(|| {
             let file = File::open("test.ff").expect("Failed to open file!");
             Farbfeld::load(BufReader::new(file)).unwrap()
         })
+    }
+
+    #[bench]
+    fn bench_check_magic(b: &mut Bencher) {
+        b.iter(|| if check_magic(&[0x66, 0x61, 0x72, 0x62, 0x66, 0x65, 0x6c, 0x64]).is_some() {
+            unreachable!();
+       })
+    }
+
+    #[bench]
+    fn bench_get_dimensions(b: &mut Bencher) {
+        b.iter(|| get_dimensions(&[0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18]).unwrap())
+    }
+
+    #[test]
+    fn test_fail_check_magic() {
+        assert!(check_magic(&[0x66, 0x61, 0x72, 0x62, 0x66, 0x65, 0x6c, 0x65]).is_some());
+    }
+
+    #[test]
+    fn test_fail_get_dimensions() {
+        assert!(get_dimensions(&[0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18])
+            .unwrap() != (286397204, 353769241));
     }
 }
