@@ -34,7 +34,11 @@ fn main() {
         Farbfeld::load(handle).expect("Failed to read load image from stdin!")
     };
 
-    let display = glium::glutin::WindowBuilder::new().build_glium().expect("Failed to initalise OpenGL!");
+    let display = glium::glutin::WindowBuilder::new()
+        .with_title("Farbfeld Viewer")
+        .with_vsync()
+        .build_glium()
+        .expect("Failed to initalise OpenGL!");
     let program = glium::program::Program::from_source(&display, r#"
         #version 140
         in vec2 position;
@@ -58,14 +62,15 @@ fn main() {
         Vertex{position: [1.0, 1.0], tex_coords: [1.0,1.0]},
         Vertex{position: [1.0, -1.0], tex_coords: [1.0,0.0]},
         Vertex{position: [-1.0, -1.0], tex_coords: [0.0,0.0]}];
-    let indices: &[u16; 6] = &[0, 1, 2, 2, 3, 0];
+    let index_data: &[u16; 6] = &[0, 1, 2, 2, 3, 0];
     let vertices = glium::VertexBuffer::new(&display, data)
         .expect("Failed to load vertex data for rendering!");
-    let indices = glium::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList, indices)
+    let indices = glium::IndexBuffer::new(&display,
+                                          glium::index::PrimitiveType::TrianglesList, index_data)
         .expect("Failed to load index data for rendering!");
     let dimensions = (img.width(), img.height());
     let mut raw_img = glium::texture::RawImage2d::from_raw_rgba_reversed(img.into_raw(), dimensions);
-    raw_img.format = glium::texture::ClientFormat::U16U16U16U16;
+    raw_img.format = glium::texture::ClientFormat::U16U16U16U16; //Defaults to U8U8U8U8 which panics
     let texture = glium::texture::Texture2d::new(&display, raw_img)
         .expect("Failed to convert image for OpenGL!");
     let uniform = uniform!(tex: &texture);
@@ -73,7 +78,8 @@ fn main() {
     loop {
         let mut target = display.draw();
         target.clear_color(0.0, 0.0, 1.0, 1.0);
-        target.draw(&vertices, &indices, &program, &uniform, &Default::default()).expect("Failed to draw image!");
+        target.draw(&vertices, &indices, &program, &uniform, &Default::default())
+            .expect("Failed to draw image!");
         target.finish().expect("Failed to draw image!");
 
         for event in display.poll_events() {
