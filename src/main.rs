@@ -77,7 +77,7 @@ fn main() {
 
     loop {
         let mut target = display.draw();
-        target.clear_color(0.0, 0.0, 1.0, 1.0);
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
         target.draw(&vertices, &indices, &program, &uniform, &Default::default())
             .expect("Failed to draw image!");
         target.finish().expect("Failed to draw image!");
