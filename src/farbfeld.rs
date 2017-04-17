@@ -210,8 +210,8 @@ fn check_count(count_res: ::std::io::Result<usize>, count_req: usize) -> Option<
     } else {
         let count = count_res.unwrap();
         if count < count_req {
-            return Some(FarbfeldErr{desc:
-                format!("Failed to read correct amount of data! Read {} bytes.", count),
+            return Some(FarbfeldErr{
+                desc: format!("Failed to read correct amount of data! Read {} bytes.", count),
                 super_err: None})
         } else {
             None
@@ -229,8 +229,8 @@ fn err_to_string<T, E:error::Error>(res: Result<T, E>) -> String {
 fn load_pixels(reader: &mut Read, dimensions: &(u32, u32)) -> Result<Vec<Pixel>, FarbfeldErr> {
     let mut pixels = Vec::with_capacity((dimensions.0 * dimensions.1) as usize);
 
+    let mut buff = [0; 8];
     loop {
-        let mut buff = [0; 8];
         let count_res = reader.read(&mut buff)
             .map_err(|err| FarbfeldErr{desc: "Failed to read data!".to_string(), super_err: Some(err)})
             .and_then(|num| {
@@ -282,6 +282,7 @@ fn get_dimensions(buff: &[u8; 8]) -> Result<(u32, u32), FarbfeldErr> {
     }
 }
 
+#[cfg(test)]
 mod test {
     extern crate test;
 

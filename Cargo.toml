@@ -6,3 +6,6 @@ authors = ["Stuart Reilly <stu@reilly-family.co.uk>"]
 [dependencies]
 byteorder = "1"
 glium = "*"
+
+[profile.release]
+debug = true
