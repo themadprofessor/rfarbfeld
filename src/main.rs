@@ -1,11 +1,14 @@
 #![feature(test)]
+#![feature(try_from)]
 
 extern crate byteorder;
 extern crate test;
-#[macro_use]
-extern crate glium;
+#[macro_use] extern crate nom;
+#[macro_use] extern crate error_chain;
+#[macro_use] extern crate glium;
 
 mod farbfeld;
+mod new_farb;
 
 use std::env;
 use std::fs::*;
