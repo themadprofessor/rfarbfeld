@@ -8,6 +8,11 @@ pub struct Pixel {
     alpha: u16
 }
 
+pub struct PixelIter {
+    pixel: Pixel,
+    curr: u8
+}
+
 impl Pixel {
     pub fn new<T>(red: T, green: T, blue: T, alpha: T) -> Pixel where T: Into<u16> {
         Pixel {
@@ -62,6 +67,29 @@ impl From<[u16; 4]> for Pixel {
     }
 }
 
+impl Iterator for PixelIter {
+    type Item = u16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.curr {
+            0 => {self.curr += 1; Some(self.pixel.red)},
+            1 => {self.curr += 1; Some(self.pixel.green)},
+            2 => {self.curr += 1; Some(self.pixel.blue)},
+            3 => {self.curr += 1; Some(self.pixel.alpha)},
+            _ => None
+        }
+    }
+}
+
+impl IntoIterator for Pixel {
+    type IntoIter = PixelIter;
+    type Item = u16;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PixelIter{pixel: self, curr: 0}
+    }
+}
+
 #[cfg(test)]
 mod test {
     extern crate test;
@@ -71,6 +99,7 @@ mod test {
 
     #[test]
     fn test_parse() {
-        assert_eq!(Pixel::from([10_u16, 20_u16, 30_u16, 40_u16]), Pixel::new(10_u16, 20_u16, 30_u16, 40_u16));
+        assert_eq!(Pixel::from([10_u16, 20_u16, 30_u16, 40_u16]),
+            Pixel::new(10_u16, 20_u16, 30_u16, 40_u16));
     }
 }

@@ -1,5 +1,4 @@
 #![feature(test)]
-#![feature(try_from)]
 
 extern crate byteorder;
 extern crate test;
@@ -11,14 +10,12 @@ mod farbfeld;
 mod new_farb;
 
 use std::env;
-use std::fs::*;
-use std::io::BufReader;
 use std::io;
 
 use glium::{Surface, DisplayBuild};
 use glium::glutin::Event;
 
-use farbfeld::Farbfeld;
+use new_farb::Farbfeld;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -28,13 +25,13 @@ struct Vertex {
 implement_vertex!(Vertex, position, tex_coords);
 
 fn main() {
-    let mut img = if let Some(path) = env::args().nth(1) {
-        let file = File::open(path).expect("Failed to open file!");
-        Farbfeld::load(BufReader::new(file)).expect("Failed to load image from file!")
+    let img = if let Some(path) = env::args().nth(1) {
+        Farbfeld::from_file(path)
+            .unwrap_or_else(|err| panic!(format!("Failed to load image from file! {}", err)))
     } else {
         let stdin = io::stdin();
         let handle = stdin.lock();
-        Farbfeld::load(handle).expect("Failed to read load image from stdin!")
+        Farbfeld::from_read(handle).expect("Failed to read load image from stdin!")
     };
 
     let display = glium::glutin::WindowBuilder::new()
@@ -71,7 +68,7 @@ fn main() {
     let indices = glium::IndexBuffer::new(&display,
                                           glium::index::PrimitiveType::TrianglesList, index_data)
         .expect("Failed to load index data for rendering!");
-    let dimensions = (img.width(), img.height());
+    let dimensions = (*img.width(), *img.height());
     let mut raw_img = glium::texture::RawImage2d::from_raw_rgba_reversed(img.into_raw(), dimensions);
     raw_img.format = glium::texture::ClientFormat::U16U16U16U16; //Defaults to U8U8U8U8 which panics
     let texture = glium::texture::Texture2d::new(&display, raw_img)

@@ -20,7 +20,7 @@ pub struct Farbfeld {
 
 impl Farbfeld {
     pub fn new(width: u32, height: u32, pixels: Vec<Pixel>) -> Result<Farbfeld> {
-        if (width * height) as usize > pixels.len() {
+        if ((width * height) as usize) != pixels.len() {
             Err(Error::from(ErrorKind::InvalidFarbfeldDimensions))
         } else {
             Ok(Farbfeld {
@@ -56,9 +56,13 @@ impl Farbfeld {
         read.read_to_end(&mut buff).map_err(ErrorKind::IoError)?;
         parser::i_to_res(parser::parse_farb(&buff))
     }
+
+    pub fn into_raw(self) -> Vec<u16> {
+        self.pixels.into_iter()
+            .flat_map(|pixel| pixel.into_iter())
+            .collect::<Vec<u16>>()
+    }
 }
-
-
 
 #[cfg(test)]
 mod test {
@@ -73,6 +77,6 @@ mod test {
 
     #[bench]
     fn bench_from_file(b: &mut Bencher) {
-        b.iter(|| Farbfeld::from_file("test.ff").is_ok())
+        b.iter(|| Farbfeld::from_file("test.ff").unwrap())
     }
 }

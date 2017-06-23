@@ -4,19 +4,19 @@ use new_farb::Pixel;
 use new_farb::Farbfeld;
 use new_farb::error::*;
 
-named!(pub parse_pixel<Pixel>, ws!(do_parse!(
+named!(pub parse_pixel<Pixel>, do_parse!(
     red: be_u16 >>
     green: be_u16 >>
     blue: be_u16 >>
     alpha: be_u16 >>
     (Pixel::new(red, green, blue, alpha))
-)));
+));
 
 named!(pub parse_farb<Farbfeld>, do_parse!(
     tag!("farbfeld") >>
     width: be_u32 >>
     height: be_u32 >>
-    pixels: many0!(parse_pixel) >>
+    pixels: many0!(flat_map!(take!(8), parse_pixel)) >>
     res: expr_res!(Farbfeld::new(width, height, pixels)) >>
     (res)
 ));

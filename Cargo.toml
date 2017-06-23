@@ -8,6 +8,3 @@ byteorder = "1"
 glium = "*"
 nom = "*"
 error-chain = "*"
-
-[profile.release]
-debug = true
