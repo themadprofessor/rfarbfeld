@@ -1,6 +1,8 @@
+use std::iter::{ExactSizeIterator, FusedIterator};
+
 use nom::{be_u16, IResult};
 
-#[derive(Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Pixel {
     red: u16,
     green: u16,
@@ -8,6 +10,7 @@ pub struct Pixel {
     alpha: u16
 }
 
+#[derive(Debug, Clone)]
 pub struct PixelIter {
     pixel: Pixel,
     curr: u8
@@ -80,6 +83,14 @@ impl Iterator for PixelIter {
         }
     }
 }
+
+impl ExactSizeIterator for PixelIter {
+    fn len(&self) -> usize {
+        4 - self.curr as usize
+    }
+}
+
+impl FusedIterator for PixelIter;
 
 impl IntoIterator for Pixel {
     type IntoIter = PixelIter;

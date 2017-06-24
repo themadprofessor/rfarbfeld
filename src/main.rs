@@ -1,4 +1,5 @@
 #![feature(test)]
+#![feature(fused)]
 
 extern crate byteorder;
 extern crate test;
@@ -7,7 +8,6 @@ extern crate test;
 #[macro_use] extern crate glium;
 
 mod farbfeld;
-mod new_farb;
 
 use std::env;
 use std::io;
@@ -15,7 +15,7 @@ use std::io;
 use glium::{Surface, DisplayBuild};
 use glium::glutin::Event;
 
-use new_farb::Farbfeld;
+use farbfeld::Farbfeld;
 
 #[derive(Copy, Clone)]
 struct Vertex {

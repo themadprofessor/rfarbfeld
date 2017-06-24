@@ -1,8 +1,8 @@
 use nom::{be_u32, be_u16, IResult};
 
-use new_farb::Pixel;
-use new_farb::Farbfeld;
-use new_farb::error::*;
+use farbfeld::Pixel;
+use farbfeld::Farbfeld;
+use farbfeld::error::*;
 
 named!(pub parse_pixel<Pixel>, do_parse!(
     red: be_u16 >>
