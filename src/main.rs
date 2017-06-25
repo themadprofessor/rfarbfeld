@@ -1,7 +1,6 @@
 #![feature(test)]
 #![feature(fused)]
 
-extern crate byteorder;
 extern crate test;
 #[macro_use] extern crate nom;
 #[macro_use] extern crate error_chain;

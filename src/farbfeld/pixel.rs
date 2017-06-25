@@ -16,6 +16,12 @@ pub struct PixelIter {
     curr: u8
 }
 
+#[derive(Debug, Clone)]
+pub struct PixelRefIter<'a> {
+    pixel: &'a Pixel,
+    curr: u8
+}
+
 impl Pixel {
     pub fn new<T>(red: T, green: T, blue: T, alpha: T) -> Pixel where T: Into<u16> {
         Pixel {
@@ -57,6 +63,10 @@ impl Pixel {
     pub fn alpha_mut(&mut self) -> &mut u16 {
         &mut self.alpha
     }
+
+    pub fn iter(&self) -> PixelRefIter {
+        PixelRefIter{pixel: &self, curr: 0}
+    }
 }
 
 impl From<[u16; 4]> for Pixel {
@@ -90,7 +100,29 @@ impl ExactSizeIterator for PixelIter {
     }
 }
 
-impl FusedIterator for PixelIter;
+impl FusedIterator for PixelIter {}
+
+impl <'a> Iterator for PixelRefIter<'a> {
+    type Item = &'a u16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.curr {
+            0 => {self.curr += 1; Some(&self.pixel.red)},
+            1 => {self.curr += 1; Some(&self.pixel.green)},
+            2 => {self.curr += 1; Some(&self.pixel.blue)},
+            3 => {self.curr += 1; Some(&self.pixel.alpha)},
+            _ => None
+        }
+    }
+}
+
+impl <'a> ExactSizeIterator for PixelRefIter<'a> {
+    fn len(&self) -> usize {
+        4 - self.curr as usize
+    }
+}
+
+impl <'a> FusedIterator for PixelRefIter<'a> {}
 
 impl IntoIterator for Pixel {
     type IntoIter = PixelIter;
@@ -112,5 +144,28 @@ mod test {
     fn test_parse() {
         assert_eq!(Pixel::from([10_u16, 20_u16, 30_u16, 40_u16]),
             Pixel::new(10_u16, 20_u16, 30_u16, 40_u16));
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let mut iter = Pixel{red: 10_u16, green: 20_u16, blue: 30_u16, alpha: 40_u16}.into_iter();
+
+        assert_eq!(Some(10_u16), iter.next());
+        assert_eq!(Some(20_u16), iter.next());
+        assert_eq!(Some(30_u16), iter.next());
+        assert_eq!(Some(40_u16), iter.next());
+        assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_iter() {
+        let pixel = Pixel{red: 10_u16, green: 20_u16, blue: 30_u16, alpha: 40_u16};
+        let mut iter = pixel.iter();
+
+        assert_eq!(Some(&10_u16), iter.next());
+        assert_eq!(Some(&20_u16), iter.next());
+        assert_eq!(Some(&30_u16), iter.next());
+        assert_eq!(Some(&40_u16), iter.next());
+        assert_eq!(None, iter.next());
     }
 }

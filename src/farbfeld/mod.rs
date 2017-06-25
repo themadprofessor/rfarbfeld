@@ -32,18 +32,6 @@ impl Farbfeld {
 
     }
 
-    pub fn pixels(&self) -> &[Pixel] {
-        &self.pixels
-    }
-
-    pub fn width(&self) -> &u32 {
-        &self.width
-    }
-
-    pub fn height(&self) -> &u32 {
-        &self.height
-    }
-
     pub fn from_file<T: AsRef<Path>>(path: T) -> Result<Farbfeld> {
         File::open(path)
             .map_err(|err| Error::from(ErrorKind::IoError(err)))
@@ -57,10 +45,37 @@ impl Farbfeld {
         parser::i_to_res(parser::parse_farb(&buff))
     }
 
+    pub fn pixels(&self) -> &[Pixel] {
+        &self.pixels
+    }
+
+    pub fn row(&self, row: u32) -> Option<&[Pixel]> {
+        if row >= self.height {
+            None
+        } else {
+            let offset = (row * self.width) as usize;
+            Some(&self.pixels[offset..offset + self.width as usize])
+        }
+    }
+
+    pub fn width(&self) -> &u32 {
+        &self.width
+    }
+
+    pub fn height(&self) -> &u32 {
+        &self.height
+    }
+
     pub fn into_raw(self) -> Vec<u16> {
         self.pixels.into_iter()
             .flat_map(|pixel| pixel.into_iter())
             .collect::<Vec<u16>>()
+    }
+
+    pub fn as_raw(&self) -> Vec<&u16> {
+        self.pixels.iter()
+            .flat_map(|pixel| pixel.iter())
+            .collect::<Vec<&u16>>()
     }
 }
 
