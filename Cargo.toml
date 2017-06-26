@@ -6,3 +6,4 @@ authors = ["Stuart Reilly <stu@reilly-family.co.uk>"]
 [dependencies]
 glium = "*"
 ruff = { path = "../ruff/" }
+exit-code = "*"
