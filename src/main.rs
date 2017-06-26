@@ -1,12 +1,5 @@
-#![feature(test)]
-#![feature(fused)]
-
-extern crate test;
-#[macro_use] extern crate nom;
-#[macro_use] extern crate error_chain;
 #[macro_use] extern crate glium;
-
-mod farbfeld;
+extern crate ruff;
 
 use std::env;
 use std::io;
@@ -14,7 +7,7 @@ use std::io;
 use glium::{Surface, DisplayBuild};
 use glium::glutin::Event;
 
-use farbfeld::Farbfeld;
+use ruff::Farbfeld;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -68,7 +61,11 @@ fn main() {
                                           glium::index::PrimitiveType::TrianglesList, index_data)
         .expect("Failed to load index data for rendering!");
     let dimensions = (*img.width(), *img.height());
-    let mut raw_img = glium::texture::RawImage2d::from_raw_rgba_reversed(img.into_raw(), dimensions);
+    let mut raw_img = glium::texture::RawImage2d::from_raw_rgba_reversed(img.pixels()
+                                                                             .iter()
+                                                                             .flat_map(|pixel| pixel.into_iter())
+                                                                             .collect::<Vec<u16>>(),
+                                                                         dimensions);
     raw_img.format = glium::texture::ClientFormat::U16U16U16U16; //Defaults to U8U8U8U8 which panics
     let texture = glium::texture::Texture2d::new(&display, raw_img)
         .expect("Failed to convert image for OpenGL!");

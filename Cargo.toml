@@ -5,5 +5,4 @@ authors = ["Stuart Reilly <stu@reilly-family.co.uk>"]
 
 [dependencies]
 glium = "*"
-nom = "*"
-error-chain = "*"
+ruff = { path = "../ruff/" }
